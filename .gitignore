@@ -45,3 +45,6 @@ app-example
 # miscellaneous
 misc/
 
+GoogleService-Info.plist
+google-services.json
+.cursor/rules/ui-design-system.mdc
