@@ -24,11 +24,7 @@ jest.mock("react-native-keyboard-controller", () => ({
 }));
 
 //Mock expo-router
-jest.mock("expo-router", () => ({
-  router: {
-    replace: jest.fn(),
-  },
-}));
+jest.mock("expo-router", () => require("@/test-utils/mocks/expo-router"));
 
 // Mock the signInWithEmailPassword function
 jest.mock("@/features/auth/signInWithEmailPassword", () => ({

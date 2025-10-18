@@ -17,6 +17,10 @@ export const Colors = {
     textColor: "#11181C",
     tabIconDefault: "#687076",
     tabIconSelected: tintColorLight,
+    placeholderTextColor: "#11181C80",
+    dateDisplayBackground: "#E0E0E0",
+    dateDisplayText: "#000000",
+    cardBackground: "#f5f5f5",
   },
   dark: {
     text: "#ECEDEE",
@@ -26,6 +30,10 @@ export const Colors = {
     icon: "#9BA1A6",
     tabIconDefault: "#9BA1A6",
     tabIconSelected: tintColorDark,
+    placeholderTextColor: "#ECEDEE80",
+    dateDisplayBackground: "#2C2C2E",
+    dateDisplayText: "#FFFFFF",
+    cardBackground: "#1a1a1a",
   },
 };
 
