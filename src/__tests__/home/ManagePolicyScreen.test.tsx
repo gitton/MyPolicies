@@ -1,11 +1,11 @@
 import ManagePolicyScreen from "@/app/home/manage-policy";
 import { savePolicy } from "@/features/data/savePolicy";
 import { renderWithProvidersAsync } from "@/test-utils/renderWithProvider";
+import { PolicyWithId } from "@/types/PolicyTypeWithId";
 import { screen, userEvent } from "@testing-library/react-native";
 import { UserEventInstance } from "@testing-library/react-native/build/user-event/setup";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
-// Mock expo-router
 jest.mock("expo-router", () => require("@/test-utils/mocks/expo-router"));
 
 // Mock react-native-keyboard-controller
@@ -29,6 +29,10 @@ describe("ManagePolicyScreen", () => {
     (savePolicy as jest.Mock).mockResolvedValue({
       success: true,
       data: "mock-policy-id",
+    });
+
+    (useLocalSearchParams as jest.Mock).mockReturnValue({
+      policyId: undefined,
     });
   });
 
@@ -411,6 +415,146 @@ describe("ManagePolicyScreen", () => {
 
         expect(screen.queryByRole("alert")).not.toBeOnTheScreen();
         expect(savePolicy).toHaveBeenCalledTimes(1);
+        expect(router.back).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe("Load Existing Policy", () => {
+      it("should pre-populate form fields when policy id is provided in search params", async () => {
+        const policyId = "2";
+        (useLocalSearchParams as jest.Mock).mockReturnValue({ policyId });
+        const mockPolicies: PolicyWithId[] = [
+          {
+            id: "1",
+            policyType: "car",
+            provider: "Test Insurance Co",
+            policyNumber: "POL-001",
+            startDate: new Date("2024-01-01"),
+            endDate: new Date("2024-12-31"),
+            premium: "500.00",
+          },
+          {
+            id: "2",
+            policyType: "house",
+            provider: "Home Insurance Ltd",
+            policyNumber: "POL-002",
+            startDate: new Date("2024-02-01"),
+            endDate: new Date("2025-02-01"),
+            premium: "1200.00",
+          },
+        ];
+        await renderWithProvidersAsync(<ManagePolicyScreen />, {
+          preloadedState: {
+            policy: {
+              policies: mockPolicies,
+              loading: false,
+              error: null,
+              saving: false,
+              saveError: null,
+            },
+          },
+        });
+
+        // Assert header title changes to "Edit Policy"
+        expect(
+          screen.getByRole("heading", { name: "Edit Policy" })
+        ).toBeOnTheScreen();
+
+        expect(
+          screen.getByDisplayValue("Home Insurance Ltd")
+        ).toBeOnTheScreen();
+
+        // Assert policy number is pre-populated
+        expect(screen.getByDisplayValue("POL-002")).toBeOnTheScreen();
+
+        // Assert premium is pre-populated
+        expect(screen.getByDisplayValue("1200.00")).toBeOnTheScreen();
+      });
+
+      it("should save changes for an existing policy when form is submitted", async () => {
+        const policyId = "2";
+        (useLocalSearchParams as jest.Mock).mockReturnValue({ policyId });
+        const mockPolicies: PolicyWithId[] = [
+          {
+            id: "2",
+            policyType: "house",
+            provider: "Home Insurance Ltd",
+            policyNumber: "POL-002",
+            startDate: new Date("2024-02-01"),
+            endDate: new Date("2025-02-01"),
+            premium: "1200.00",
+          },
+        ];
+        const user = userEvent.setup();
+
+        await renderWithProvidersAsync(<ManagePolicyScreen />, {
+          preloadedState: {
+            policy: {
+              policies: mockPolicies,
+              loading: false,
+              error: null,
+              saving: false,
+              saveError: null,
+            },
+          },
+        });
+
+        const saveButton = screen.getByRole("button", { name: "Save" });
+        await user.press(saveButton);
+
+        expect(savePolicy).toHaveBeenCalledTimes(1);
+        expect(savePolicy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            provider: "Home Insurance Ltd",
+            policyNumber: "POL-002",
+            premium: "1200.00",
+            policyType: "house",
+          }),
+          policyId
+        );
+        expect(router.back).toHaveBeenCalledTimes(1);
+      });
+
+      it("should route to home screen, if policy id provided in search params but policy not found", async () => {
+        const policyId = "3";
+        (useLocalSearchParams as jest.Mock).mockReturnValue({ policyId });
+        const mockPolicies: PolicyWithId[] = [
+          {
+            id: "1",
+            policyType: "car",
+            provider: "Test Insurance Co",
+            policyNumber: "POL-001",
+            startDate: new Date("2024-01-01"),
+            endDate: new Date("2024-12-31"),
+            premium: "500.00",
+          },
+          {
+            id: "2",
+            policyType: "house",
+            provider: "Home Insurance Ltd",
+            policyNumber: "POL-002",
+            startDate: new Date("2024-02-01"),
+            endDate: new Date("2025-02-01"),
+            premium: "1200.00",
+          },
+        ];
+        await renderWithProvidersAsync(<ManagePolicyScreen />, {
+          preloadedState: {
+            policy: {
+              policies: mockPolicies,
+              loading: false,
+              error: null,
+              saving: false,
+              saveError: null,
+            },
+          },
+        });
+
+        // Assert header title changes to "Edit Policy"
+        expect(
+          screen.getByRole("heading", { name: "Edit Policy" })
+        ).toBeOnTheScreen();
+
         expect(router.back).toHaveBeenCalledTimes(1);
       });
     });

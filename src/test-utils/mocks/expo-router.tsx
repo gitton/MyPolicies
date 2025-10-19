@@ -1,3 +1,4 @@
+import { UnknownOutputParams } from "expo-router";
 import React from "react";
 import { View } from "react-native";
 
@@ -129,7 +130,7 @@ export const useRouter = jest.fn(() => ({
 // Mock other hooks
 export const usePathname = jest.fn(() => "/");
 export const useSegments = jest.fn(() => []);
-export const useLocalSearchParams = jest.fn(() => ({}));
+export const useLocalSearchParams = jest.fn(() => ({} as UnknownOutputParams));
 export const useGlobalSearchParams = jest.fn(() => ({}));
 
 // Export the complete mock

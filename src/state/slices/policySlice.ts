@@ -38,7 +38,7 @@ export const fetchPolicies = createAsyncThunk(
 );
 
 /**
- * Async thunk to save a new policy
+ * Async thunk to create a new policy
  */
 export const createPolicy = createAsyncThunk(
   "policy/createPolicy",
@@ -51,6 +51,28 @@ export const createPolicy = createAsyncThunk(
 
     return {
       id: result.data,
+      ...policy,
+    };
+  }
+);
+
+/**
+ * Async thunk to update an existing policy
+ */
+export const updateExistingPolicy = createAsyncThunk(
+  "policy/updatePolicy",
+  async (
+    { policy, policyId }: { policy: PolicyType; policyId: string },
+    { rejectWithValue }
+  ) => {
+    const result = await savePolicy(policy, policyId);
+
+    if (!result.success) {
+      return rejectWithValue(result.error);
+    }
+
+    return {
+      id: policyId,
       ...policy,
     };
   }
@@ -84,7 +106,7 @@ const policySlice = createSlice({
      * Add a policy to the state (useful for optimistic updates)
      */
     addPolicy: (state, action: PayloadAction<PolicyWithId>) => {
-      state.policies.push(action.payload);
+      state.policies.unshift(action.payload);
     },
     /**
      * Remove a policy from the state by ID
@@ -135,7 +157,7 @@ const policySlice = createSlice({
     });
     builder.addCase(createPolicy.fulfilled, (state, action) => {
       state.saving = false;
-      state.policies.push(action.payload);
+      state.policies.unshift(action.payload);
       state.saveError = null;
     });
     builder.addCase(createPolicy.rejected, (state, action) => {
@@ -146,9 +168,30 @@ const policySlice = createSlice({
       };
       state.saveError = error.code;
     });
+
+    // Update policy
+    builder.addCase(updateExistingPolicy.pending, (state) => {
+      state.saving = true;
+      state.saveError = null;
+    });
+    builder.addCase(updateExistingPolicy.fulfilled, (state, action) => {
+      state.saving = false;
+      const index = state.policies.findIndex((p) => p.id === action.payload.id);
+      if (index !== -1) {
+        state.policies[index] = action.payload;
+      }
+      state.saveError = null;
+    });
+    builder.addCase(updateExistingPolicy.rejected, (state, action) => {
+      state.saving = false;
+      const error = action.payload as {
+        code: string;
+        details?: Record<string, string[]>;
+      };
+      state.saveError = error.code;
+    });
   },
 });
-
 export const {
   clearPolicies,
   clearSaveError,

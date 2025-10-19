@@ -1,9 +1,10 @@
 // Tests for policy slice
 
-import { getPolicies, PolicyWithId } from "@/features/data/getPolicies";
+import { getPolicies } from "@/features/data/getPolicies";
 import { savePolicy } from "@/features/data/savePolicy";
 import { setupStore } from "@/state/store";
 import type { PolicyType } from "@/types/PolicyType";
+import type { PolicyWithId } from "@/types/PolicyTypeWithId";
 import {
   addPolicy,
   clearError,
@@ -12,6 +13,7 @@ import {
   createPolicy,
   fetchPolicies,
   removePolicy,
+  updateExistingPolicy,
   updatePolicy,
 } from "../policySlice";
 
@@ -164,7 +166,10 @@ describe("policySlice", () => {
       store.dispatch(
         updatePolicy({
           id: "1",
-          changes: { provider: "Updated Provider", premium: "150.00" },
+          changes: {
+            provider: "Updated Provider",
+            premium: "150.00",
+          },
         })
       );
 
@@ -285,6 +290,96 @@ describe("policySlice", () => {
         const state = store.getState().policy;
         expect(state.saving).toBe(false);
         expect(state.saveError).toBe("VALIDATION_ERROR");
+      });
+    });
+
+    describe("updatePolicy", () => {
+      const existingPolicy: PolicyType = {
+        provider: "Existing Provider",
+        policyNumber: "EP-123",
+        premium: "100.00",
+        startDate: new Date("2024-01-01"),
+        endDate: new Date("2025-01-01"),
+        policyType: "car",
+      };
+      const policyId = "existing-policy-id";
+
+      const updatedPolicy: PolicyType = {
+        ...existingPolicy,
+        provider: "Updated Provider",
+        premium: "150.00",
+      };
+
+      beforeEach(() => {
+        // Initialize state with an existing policy
+        store = setupStore({
+          policy: {
+            policies: [{ id: policyId, ...existingPolicy }],
+            loading: false,
+            error: null,
+            saving: false,
+            saveError: null,
+          },
+        });
+      });
+
+      it("should handle updatePolicy pending", async () => {
+        mockSavePolicy.mockImplementation(
+          () => new Promise(() => {}) // Never resolves
+        );
+
+        store.dispatch(
+          updateExistingPolicy({ policy: updatedPolicy, policyId })
+        );
+
+        const state = store.getState().policy;
+        expect(state.saving).toBe(true);
+        expect(state.saveError).toBe(null);
+      });
+
+      it("should handle updatePolicy fulfilled", async () => {
+        mockSavePolicy.mockResolvedValue({
+          success: true,
+          data: policyId,
+        });
+
+        await store.dispatch(
+          updateExistingPolicy({ policy: updatedPolicy, policyId })
+        );
+
+        const state = store.getState().policy;
+        expect(state.saving).toBe(false);
+        expect(state.policies).toHaveLength(1);
+        expect(state.policies[0]).toMatchObject({
+          id: policyId,
+          ...updatedPolicy,
+        });
+        expect(state.saveError).toBe(null);
+      });
+
+      it("should handle updatePolicy rejected", async () => {
+        mockSavePolicy.mockResolvedValue({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            details: {
+              premium: ["Premium is too low"],
+            },
+          },
+        });
+
+        await store.dispatch(
+          updateExistingPolicy({ policy: updatedPolicy, policyId })
+        );
+
+        const state = store.getState().policy;
+        expect(state.saving).toBe(false);
+        expect(state.saveError).toBe("VALIDATION_ERROR");
+        // Ensure the policy in the state was not updated on rejection
+        expect(state.policies[0]).toMatchObject({
+          id: policyId,
+          ...existingPolicy,
+        });
       });
     });
   });

@@ -302,6 +302,42 @@ describe("savePolicy", () => {
     ]);
   });
 
+  it("should return a failure result with VALIDATION_ERROR when policy id to update is empty", async () => {
+    (getCurrentUser as jest.Mock).mockReturnValue({ id: "user-123" });
+    const policyToUpdate: PolicyType = {
+      ...mockPolicy,
+    };
+    const invalidId = "";
+
+    const result = await savePolicy(policyToUpdate, invalidId);
+    expect(getCurrentUser).toHaveBeenCalledTimes(1);
+    expect((result as PolicySaveFailure).success).toBe(false);
+    expect((result as PolicySaveFailure).error.code).toEqual(
+      "VALIDATION_ERROR"
+    );
+    expect((result as PolicySaveFailure).error.details?.policyId).toEqual([
+      "Invalid policy id to update",
+    ]);
+  });
+
+  it("should return a failure result with VALIDATION_ERROR when policy id of the policy to update is with whitespace", async () => {
+    (getCurrentUser as jest.Mock).mockReturnValue({ id: "user-123" });
+    const policyToUpdate: PolicyType = {
+      ...mockPolicy,
+    };
+    const invalidId = "     ";
+
+    const result = await savePolicy(policyToUpdate, invalidId);
+    expect(getCurrentUser).toHaveBeenCalledTimes(1);
+    expect((result as PolicySaveFailure).success).toBe(false);
+    expect((result as PolicySaveFailure).error.code).toEqual(
+      "VALIDATION_ERROR"
+    );
+    expect((result as PolicySaveFailure).error.details?.policyId).toEqual([
+      "Invalid policy id to update",
+    ]);
+  });
+
   it("should save the policy to Firestore and return a success result with the policy ID", async () => {
     const mockUserId = "user-123";
     const mockPolicyId = "mock-policy-id";
@@ -339,6 +375,103 @@ describe("savePolicy", () => {
 
     expect(result.success).toBe(true);
     expect((result as Success<string>).data).toEqual(mockFirestoreDoc.id);
+  });
+
+  it("should create a new policy in Firestore and return a success result with the policy ID", async () => {
+    const mockUserId = "user-123";
+    const mockPolicyId = "mock-policy-id";
+    const mockSetFn = jest.fn(() => Promise.resolve());
+    const mockUpdateFn = jest.fn(() => Promise.resolve());
+
+    (getCurrentUser as jest.Mock).mockReturnValue({ id: mockUserId });
+    (getUniqueId as jest.Mock).mockReturnValue(mockPolicyId);
+    (mockCollectionRef.doc as jest.Mock).mockReturnValue({
+      set: mockSetFn,
+      update: mockUpdateFn,
+    });
+
+    const result = await savePolicy(mockPolicy);
+
+    expect(getCurrentUser).toHaveBeenCalledTimes(1);
+    expect(getPoliciesCollectionReference).toHaveBeenCalledWith(mockUserId);
+    expect(getUniqueId).toHaveBeenCalledTimes(1);
+    expect(getUniqueId).toHaveBeenCalledWith(mockCollectionRef.doc());
+    expect(mockCollectionRef.doc).toHaveBeenCalledWith(mockPolicyId);
+
+    //verify that update() was not called
+    expect(mockUpdateFn).not.toHaveBeenCalled();
+
+    // Verify that set() was called with the correct data including timestamps
+    expect(mockSetFn).toHaveBeenCalledTimes(1);
+    const callArgs = (mockSetFn.mock.calls as any)[0]?.[0];
+    expect(callArgs).toBeDefined();
+    expect(callArgs).toMatchObject({
+      provider: mockPolicy.provider,
+      policyNumber: mockPolicy.policyNumber,
+      premium: mockPolicy.premium,
+      policyType: mockPolicy.policyType,
+      createdAt: mockTimestamp,
+      updatedAt: mockTimestamp,
+    });
+    // Verify dates are normalized correctly
+    expect(callArgs.startDate).toBeInstanceOf(Date);
+    expect(callArgs.endDate).toBeInstanceOf(Date);
+
+    expect(result.success).toBe(true);
+    expect((result as Success<string>).data).toEqual(mockFirestoreDoc.id);
+  });
+
+  it("should update the existing policy in Firestore and return a success result with the policy ID when policy id is provided", async () => {
+    const mockUserId = "user-123";
+    const mockPolicyId = "mock-policy-id";
+    const mockUpdateFn = jest.fn(() => Promise.resolve());
+    const mockSetFn = jest.fn(() => Promise.resolve());
+
+    (getCurrentUser as jest.Mock).mockReturnValue({ id: mockUserId });
+    // When updating, we should NOT generate a new id
+    (getUniqueId as jest.Mock).mockReturnValue("SHOULD_NOT_BE_USED");
+    (mockCollectionRef.doc as jest.Mock).mockReturnValue({
+      update: mockUpdateFn,
+      set: mockSetFn,
+    });
+
+    // Pass the id to update the existing policy
+    const result = await savePolicy(mockPolicy, mockPolicyId);
+
+    expect(getCurrentUser).toHaveBeenCalledTimes(1);
+    expect(getPoliciesCollectionReference).toHaveBeenCalledWith(mockUserId);
+
+    // No new id generation on update
+    expect(getUniqueId).not.toHaveBeenCalled();
+
+    // We must write to the provided id
+    expect(mockCollectionRef.doc).toHaveBeenCalledWith(mockPolicyId);
+
+    //verify that set() was not called
+    expect(mockSetFn).not.toHaveBeenCalled();
+
+    // Verify that update() was called once with correct payload and merge option
+    expect(mockUpdateFn).toHaveBeenCalledTimes(1);
+    const [dataArg, optionsArg] = (mockUpdateFn.mock.calls as any)[0];
+
+    // payload should contain normalized dates + updatedAt, but NOT createdAt for updates
+    expect(dataArg).toBeDefined();
+    expect(dataArg).toMatchObject({
+      provider: mockPolicy.provider,
+      policyNumber: mockPolicy.policyNumber,
+      premium: mockPolicy.premium,
+      policyType: mockPolicy.policyType,
+      updatedAt: mockTimestamp,
+    });
+    expect(dataArg).not.toHaveProperty("createdAt");
+
+    // dates normalized
+    expect(dataArg.startDate).toBeInstanceOf(Date);
+    expect(dataArg.endDate).toBeInstanceOf(Date);
+
+    // result contains the same id we updated
+    expect(result.success).toBe(true);
+    expect((result as Success<string>).data).toEqual(mockPolicyId);
   });
 
   it("should add createdAt and updatedAt timestamps when saving policy", async () => {

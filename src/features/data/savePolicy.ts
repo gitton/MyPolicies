@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/features/auth/getCurrentUser";
 import type { PolicyType } from "@/types/PolicyType";
 import { getEndOfDay } from "@/utils/getEndOfDay";
 import { getStartOfDay } from "@/utils/getStartOfDay";
-import { fullPolicySchema } from "@/validation/policySchema";
+import { policySchema } from "@/validation/policySchema";
 import { serverTimestamp } from "@react-native-firebase/firestore";
 import { Failure, GENERIC_ERROR_CODE, Result, Success } from "../Result";
 import { getPoliciesCollectionReference } from "./firestore/getCollectionReference";
@@ -17,9 +17,11 @@ export type POLICY_SAVE_ERROR_CODE =
   | "VALIDATION_ERROR";
 
 /**
- * Saves a policy to Firestore for the currently authenticated user.
+ * Saves a new policy or updates an existing policy to Firestore for the currently authenticated user.
+ * If an `id` is provided, the policy with that ID will be updated. Otherwise, a new policy will be created.
  *
  * @param policy The policy object to be saved. Must conform to `PolicyType`.
+ * @param policyId Optional. The ID of the policy to update. If not provided, a new policy will be created.
  * @returns A Promise that resolves to a `Success<string>` containing the policy ID on success,
  *          or a `Failure<POLICY_SAVE_ERROR_CODE>` on failure.
  *          - `UNAUTHENTICATED`: If no user is currently authenticated.
@@ -28,12 +30,22 @@ export type POLICY_SAVE_ERROR_CODE =
  *          - `FIRESTORE_ERROR`: If an error occurs during the Firestore save operation.
  */
 export const savePolicy = async (
-  policy: PolicyType
+  policy: PolicyType,
+  policyId?: string
 ): Promise<Result<string, POLICY_SAVE_ERROR_CODE>> => {
   // Check if user is authenticated
   const user = getCurrentUser();
   if (!user) {
     return createFailureResult("UNAUTHENTICATED");
+  }
+
+  // Validate id if provided
+  if (policyId !== undefined) {
+    if (!policyId.trim()) {
+      return createFailureResult("VALIDATION_ERROR", {
+        policyId: ["Invalid policy id to update"],
+      });
+    }
   }
 
   // Normalize dates: start date to beginning of day, end date to end of day in the local timezone
@@ -44,7 +56,7 @@ export const savePolicy = async (
   };
 
   // Validate policy form data using schema
-  const validationResult = fullPolicySchema.safeParse(normalizedPolicy);
+  const validationResult = policySchema.safeParse(normalizedPolicy);
 
   if (!validationResult.success) {
     const errors = validationResult.error.flatten();
@@ -53,14 +65,29 @@ export const savePolicy = async (
 
   try {
     const policiesCollectionRef = getPoliciesCollectionReference(user.id);
-    const policyId = getUniqueId(policiesCollectionRef.doc());
-    const documentReference = policiesCollectionRef.doc(policyId);
-    await documentReference.set({
-      ...validationResult.data,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return createSuccessResult(policyId);
+    const now = serverTimestamp();
+
+    //If policy id is provided, update the policy otherwise create a new policy
+    if (policyId === undefined) {
+      //create a new policy
+      const newPolicyId = getUniqueId(policiesCollectionRef.doc());
+      const documentReference = policiesCollectionRef.doc(newPolicyId);
+      await documentReference.set({
+        ...validationResult.data,
+        createdAt: now,
+        updatedAt: now,
+      });
+      //return the success result
+      return createSuccessResult(newPolicyId);
+    } else {
+      const documentReference = policiesCollectionRef.doc(policyId);
+      await documentReference.update({
+        ...validationResult.data,
+        updatedAt: now,
+      });
+      //return the success result
+      return createSuccessResult(policyId);
+    }
   } catch (error) {
     // console.error("Failed to save policy:", error);
     return createFailureResult("UNKNOWN_ERROR");

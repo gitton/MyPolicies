@@ -29,7 +29,9 @@ export const getPolicies = async (): Promise<
 
   try {
     const policiesCollectionRef = getPoliciesCollectionReference(user.id);
-    const querySnapshot = await policiesCollectionRef.get();
+    const querySnapshot = await policiesCollectionRef
+      .orderBy("createdAt", "desc")
+      .get();
 
     const policies: PolicyWithId[] = querySnapshot.docs.map((doc) => {
       const firestoreData = doc.data() as FirestorePolicyType;
