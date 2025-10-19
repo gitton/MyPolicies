@@ -16,7 +16,8 @@ import { getNetworkStateAsync } from "expo-network";
 
 export type SIGN_IN_WITH_ERROR_CODE =
   | GENERIC_ERROR_CODE
-  | "AUTH_INVALID_CREDENTIALS";
+  | "AUTH_INVALID_CREDENTIALS"
+  | "NO_NETWORK_ERROR";
 
 export const signInWithEmailPassword = async (
   email: string,

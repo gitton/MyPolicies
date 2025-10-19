@@ -5,6 +5,7 @@ module.exports = {
     transformIgnorePatterns: [
       'node_modules/(?!((jest-)?react-native'
         + '|@react-native'
+        + '|@react-native-segmented-control'
         + '|react-clone-referenced-element'
         + '|@react-navigation'
         + '|@react-native(-community)?'
@@ -21,6 +22,7 @@ module.exports = {
         + '|react-redux'
         + '|immer'
         + '|redux'
+        + '|@react-native-firebase'
       + ')(/|$))',
     ],
     moduleNameMapper: {

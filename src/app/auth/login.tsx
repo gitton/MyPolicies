@@ -1,24 +1,19 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { ThemedTextInput } from "@/components/ui/themed-text-input";
 import {
   SIGN_IN_WITH_ERROR_CODE,
   signInWithEmailPassword,
 } from "@/features/auth/signInWithEmailPassword";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import useUnmountSignal from "@/hooks/useUnmountSignal";
-import { loginSchema, LoginType } from "@/validation/loginSchema";
+import { LoginType } from "@/types/LoginType";
+import { loginSchema } from "@/validation/loginSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import { Controller, SubmitHandler, useForm } from "react-hook-form";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 import {
   KeyboardAwareScrollView,
   KeyboardToolbar,
@@ -87,64 +82,45 @@ export default function LoginScreen() {
           <Controller
             control={control}
             render={({ field: { onChange, value, onBlur } }) => (
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Email</ThemedText>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: textColor, borderColor: textColor },
-                  ]}
-                  placeholder="Enter your email"
-                  placeholderTextColor={textColor + "80"}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  accessibilityLabel="Email"
-                  autoCapitalize="none"
-                />
-              </View>
+              <ThemedTextInput
+                label="Email"
+                placeholder="Enter your email"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                accessibilityLabel="Email"
+                autoCapitalize="none"
+                error={
+                  errors.email
+                    ? "Please enter a valid email address"
+                    : undefined
+                }
+              />
             )}
             name="email"
           />
-          {/* Email validation error */}
-          {errors.email && (
-            <Text role="alert" style={styles.errorMessage}>
-              Please enter a valid email address
-            </Text>
-          )}
-
-          {/* Password input field */}
           <Controller
             control={control}
             render={({ field: { onChange, value, onBlur } }) => (
-              <View style={styles.inputContainer}>
-                <ThemedText style={styles.label}>Password</ThemedText>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { color: textColor, borderColor: textColor },
-                  ]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={textColor + "80"}
-                  secureTextEntry
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  accessibilityLabel="Password"
-                  autoCapitalize="none"
-                  autoComplete="off"
-                />
-              </View>
+              <ThemedTextInput
+                label="Password"
+                placeholder="Enter your password"
+                value={value}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                accessibilityLabel="Password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="off"
+                error={
+                  errors.password
+                    ? "Password must be at least 6 characters"
+                    : undefined
+                }
+              />
             )}
             name="password"
           />
-          {/* Password validation error */}
-          {errors.password && (
-            <Text role="alert" style={styles.errorMessage}>
-              Password must be at least 6 characters
-            </Text>
-          )}
-
           {/* Login button */}
           <Pressable
             style={[styles.button, { backgroundColor: tintColor }]}
