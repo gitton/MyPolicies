@@ -3,14 +3,15 @@ import { ThemedView } from "@/components/themed-view";
 import { ThemedDateDisplay } from "@/components/ui/themed-date-display";
 import { ThemedTextInput } from "@/components/ui/themed-text-input";
 import { POLICY_SAVE_ERROR_CODE } from "@/features/data/savePolicy";
-import { useAppDispatch } from "@/hooks/hooks";
+import { useAppDispatch, useAppSelector } from "@/hooks/hooks";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import useUnmountSignal from "@/hooks/useUnmountSignal";
-import { createPolicy } from "@/state/slices/policySlice";
+import { createPolicy, updateExistingPolicy } from "@/state/slices/policySlice";
 import type { PolicyType } from "@/types/PolicyType";
-import { PolicyCategory, PolicyFormData } from "@/types/PolicyType";
+import { PolicyCategory } from "@/types/PolicyType";
+import { isPolicySaveError } from "@/types/SaveError";
 import { addYears } from "@/utils/addYears";
-import { policyFormSchema } from "@/validation/policySchema";
+import { policySchema } from "@/validation/policySchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AndroidNativeProps,
@@ -19,9 +20,9 @@ import {
   default as RNDateTimePicker,
 } from "@react-native-community/datetimepicker";
 import SegmentedControl from "@react-native-segmented-control/segmented-control";
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button, Platform, StyleSheet, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
@@ -45,6 +46,7 @@ const policyCategoryLabels: Record<PolicyCategory, string> = {
  * Add loading indicator when saving policy
  * Disable add button when saving policy
  * Validate start date and end date selection and error handling in e2e tests
+ * Validate edit policy functionality in e2e tests
  */
 
 // Error messages mapped to saved policy
@@ -58,45 +60,61 @@ export default function ManagePolicyScreen() {
   const unmountSignal = useUnmountSignal();
   const dispatch = useAppDispatch();
 
+  const { policyId } = useLocalSearchParams<{ policyId?: string }>();
+  const policies = useAppSelector((state) => state.policy.policies);
+
   // Theme colors
   const backgroundColor = useThemeColor({}, "background");
   const textColor = useThemeColor({}, "text");
   const tintColor = useThemeColor({}, "tint");
 
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [endDate, setEndDate] = useState<Date>(() => addYears(new Date(), 1));
-  const [policyType, setPolicyType] = useState<PolicyCategory>(
-    listOfSupportedPolicyCategories[0]
-  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const policyTypeIndex = listOfSupportedPolicyCategories.indexOf(policyType);
-  // React Hook Form setup
+
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<PolicyFormData>({
-    resolver: zodResolver(policyFormSchema),
+    reset,
+  } = useForm<PolicyType>({
+    resolver: zodResolver(policySchema),
     defaultValues: {
       provider: "",
       policyNumber: "",
       premium: "",
+      startDate: new Date(),
+      endDate: addYears(new Date(), 1),
+      policyType: "car",
     },
   });
 
-  const onSubmit = async (data: PolicyFormData) => {
-    // Convert form from PolicyFormData to PolicyType
-    const policyData: PolicyType = {
-      startDate: startDate,
-      endDate: endDate,
-      provider: data.provider,
-      policyNumber: data.policyNumber,
-      premium: data.premium,
-      policyType: policyType,
-    };
+  React.useEffect(() => {
+    if (policyId) {
+      const policyToEdit = policies.find((policy) => policy.id === policyId);
 
+      if (policyToEdit) {
+        reset({
+          provider: policyToEdit.provider,
+          policyNumber: policyToEdit.policyNumber,
+          premium: policyToEdit.premium,
+          startDate: policyToEdit.startDate,
+          endDate: policyToEdit.endDate,
+          policyType: policyToEdit.policyType,
+        });
+      } else {
+        router.back();
+      }
+    }
+  }, []);
+
+  const onSubmit = async (data: PolicyType) => {
     try {
-      await dispatch(createPolicy(policyData)).unwrap();
+      if (policyId) {
+        await dispatch(
+          updateExistingPolicy({ policy: data, policyId })
+        ).unwrap();
+      } else {
+        await dispatch(createPolicy(data)).unwrap();
+      }
 
       if (unmountSignal.aborted) {
         return;
@@ -108,24 +126,21 @@ export default function ManagePolicyScreen() {
         return;
       }
 
-      const errorPayload = error as {
-        code: POLICY_SAVE_ERROR_CODE;
-        details?: Record<string, string[]>;
-      };
-
-      switch (errorPayload.code) {
-        case "UNAUTHENTICATED":
-          router.replace("/auth/login");
-          break;
-        case "VALIDATION_ERROR":
-          setErrorMessage(savePolicyErrorMessage[errorPayload.code]);
-          break;
-        case "UNKNOWN_ERROR":
-          setErrorMessage(savePolicyErrorMessage[errorPayload.code]);
-          break;
-        default:
-          const _exhaustiveCheck: never = errorPayload.code;
-          throw new Error(`Unhandled error code: ${_exhaustiveCheck}`);
+      if (isPolicySaveError(error)) {
+        switch (error.code) {
+          case "UNAUTHENTICATED":
+            router.replace("/auth/login");
+            break;
+          case "VALIDATION_ERROR":
+            setErrorMessage(savePolicyErrorMessage[error.code]);
+            break;
+          case "UNKNOWN_ERROR":
+            setErrorMessage(savePolicyErrorMessage[error.code]);
+            break;
+          default:
+            const _exhaustiveCheck: never = error.code;
+            throw new Error(`Unhandled error code: ${_exhaustiveCheck}`);
+        }
       }
     }
   };
@@ -134,12 +149,14 @@ export default function ManagePolicyScreen() {
 
   const onOpenDatePickerAndroid = (
     date: Date,
-    setDate: (date: Date) => void
+    setDate: (date: Date) => void,
+    minimumDate?: Date
   ) => {
     const params: AndroidNativeProps = {
       value: date,
       mode: "date",
       display: "default",
+      minimumDate: minimumDate,
       onChange: (event, selectedDate) => {
         if (event.type === "set" && selectedDate) {
           setDate(selectedDate);
@@ -149,13 +166,7 @@ export default function ManagePolicyScreen() {
     DateTimePickerAndroid.open(params);
   };
 
-  const onChangeStartDate = (date: Date) => {
-    setStartDate(date);
-  };
-
-  const onChangeEndDate = (date: Date) => {
-    setEndDate(date);
-  };
+  const startDate = useWatch({ control, name: "startDate" });
 
   return (
     <>
@@ -168,9 +179,16 @@ export default function ManagePolicyScreen() {
             color: textColor,
           },
           headerTintColor: textColor,
-          headerTitle: () => <ThemedText role="heading">Add Policy</ThemedText>,
+          headerTitle: () => (
+            <ThemedText role="heading">
+              {policyId ? "Edit Policy" : "Add Policy"}
+            </ThemedText>
+          ),
           headerRight: () => (
-            <Button title="Add" onPress={handleSubmit(onSubmit)} />
+            <Button
+              title={policyId ? "Save" : "Add"}
+              onPress={handleSubmit(onSubmit)}
+            />
           ),
         }}
       />
@@ -178,32 +196,37 @@ export default function ManagePolicyScreen() {
         contentContainerStyle={[[{ backgroundColor }, styles.container]]}
       >
         <ThemedView style={styles.container}>
-          <SegmentedControl
-            values={[
-              ...listOfSupportedPolicyCategories.map(
-                (category) => policyCategoryLabels[category]
-              ),
-            ]}
-            selectedIndex={policyTypeIndex}
-            onChange={(event) => {
-              setPolicyType(
-                listOfSupportedPolicyCategories[
-                  event.nativeEvent.selectedSegmentIndex
-                ]
-              );
-            }}
-            style={styles.segmentedControl}
-            tintColor={tintColor}
-            backgroundColor={backgroundColor}
-            fontStyle={{
-              color: textColor,
-            }}
-            activeFontStyle={{
-              color: backgroundColor,
-            }}
-            testID="manage-policy-screen.policy-type-segmented-control"
+          <Controller
+            control={control}
+            name="policyType"
+            render={({ field: { onChange, value } }) => (
+              <SegmentedControl
+                values={[
+                  ...listOfSupportedPolicyCategories.map(
+                    (category) => policyCategoryLabels[category]
+                  ),
+                ]}
+                selectedIndex={listOfSupportedPolicyCategories.indexOf(value)}
+                onChange={(event) => {
+                  onChange(
+                    listOfSupportedPolicyCategories[
+                      event.nativeEvent.selectedSegmentIndex
+                    ]
+                  );
+                }}
+                style={styles.segmentedControl}
+                tintColor={tintColor}
+                backgroundColor={backgroundColor}
+                fontStyle={{
+                  color: textColor,
+                }}
+                activeFontStyle={{
+                  color: backgroundColor,
+                }}
+                testID="manage-policy-screen.policy-type-segmented-control"
+              />
+            )}
           />
-
           <Controller
             control={control}
             name="provider"
@@ -219,7 +242,6 @@ export default function ManagePolicyScreen() {
               />
             )}
           />
-
           <Controller
             control={control}
             name="policyNumber"
@@ -235,7 +257,6 @@ export default function ManagePolicyScreen() {
               />
             )}
           />
-
           <Controller
             control={control}
             name="premium"
@@ -252,56 +273,70 @@ export default function ManagePolicyScreen() {
               />
             )}
           />
-
           <View style={styles.dateContainer}>
             <ThemedText style={styles.label}>Start Date</ThemedText>
-            {Platform.OS === "ios" ? (
-              <RNDateTimePicker
-                value={startDate}
-                testID="manage-policy-screen.start-date-picker"
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  if (event.type === "set" && selectedDate) {
-                    onChangeStartDate(selectedDate);
-                  }
-                }}
-              />
-            ) : (
-              <ThemedDateDisplay
-                date={startDate}
-                testID="manage-policy-screen.start-date-display"
-                onPress={() =>
-                  onOpenDatePickerAndroid(startDate, onChangeStartDate)
-                }
-              />
-            )}
+            <Controller
+              control={control}
+              name="startDate"
+              render={({ field: { value, onChange } }) =>
+                Platform.OS === "ios" ? (
+                  <RNDateTimePicker
+                    value={value}
+                    testID="manage-policy-screen.start-date-picker"
+                    mode="date"
+                    display="default"
+                    onChange={(event, selectedDate) => {
+                      if (event.type === "set" && selectedDate) {
+                        onChange(selectedDate);
+                      }
+                    }}
+                  />
+                ) : (
+                  <ThemedDateDisplay
+                    date={value}
+                    testID="manage-policy-screen.start-date-display"
+                    onPress={() => onOpenDatePickerAndroid(value, onChange)}
+                  />
+                )
+              }
+            />
           </View>
-
           <View style={styles.dateContainer}>
             <ThemedText style={styles.label}>End Date</ThemedText>
-            {Platform.OS === "ios" ? (
-              <DateTimePicker
-                value={endDate}
-                testID="manage-policy-screen.end-date-picker"
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  if (event.type === "set" && selectedDate) {
-                    onChangeEndDate(selectedDate);
-                  }
-                }}
-              />
-            ) : (
-              <ThemedDateDisplay
-                date={endDate}
-                testID="manage-policy-screen.end-date-display"
-                onPress={() =>
-                  onOpenDatePickerAndroid(endDate, onChangeEndDate)
-                }
-              />
-            )}
+            <Controller
+              control={control}
+              name="endDate"
+              render={({ field: { value, onChange } }) =>
+                Platform.OS === "ios" ? (
+                  <DateTimePicker
+                    value={value}
+                    testID="manage-policy-screen.end-date-picker"
+                    mode="date"
+                    display="default"
+                    minimumDate={startDate}
+                    onChange={(event, selectedDate) => {
+                      if (event.type === "set" && selectedDate) {
+                        onChange(selectedDate);
+                      }
+                    }}
+                  />
+                ) : (
+                  <ThemedDateDisplay
+                    date={value}
+                    testID="manage-policy-screen.end-date-display"
+                    onPress={() =>
+                      onOpenDatePickerAndroid(value, onChange, startDate)
+                    }
+                  />
+                )
+              }
+            />
           </View>
+          {errors.endDate && (
+            <ThemedText style={styles.errorMessage} role="alert">
+              {errors.endDate.message}
+            </ThemedText>
+          )}
           {/* Save Policy error message */}
           {errorMessage && (
             <Text role="alert" style={styles.errorMessage}>

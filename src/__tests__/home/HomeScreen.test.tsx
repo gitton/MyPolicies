@@ -59,6 +59,18 @@ describe("HomeScreen", () => {
   };
 
   describe("Rendering", () => {
+    it("if the user is not authenticated, it should redirect to the login screen", async () => {
+      await renderWithProvidersAsync(<HomeScreen />, {
+        preloadedState: {
+          auth: {
+            user: null,
+            loading: false,
+          },
+        },
+      });
+      expect(router.replace).toHaveBeenCalledWith("/auth/login");
+    });
+
     it("should render loading indicator when loading policies for the first time", () => {
       renderWithProviders(<HomeScreen />, {
         preloadedState: {
@@ -258,6 +270,52 @@ describe("HomeScreen", () => {
       await user.press(addButton);
 
       expect(router.push).toHaveBeenCalledWith("/home/manage-policy");
+    });
+
+    it("should navigate to the manage policy screen when the policy card is pressed with the policy id", async () => {
+      const user = userEvent.setup();
+      const mockPolicies: PolicyWithId[] = [
+        {
+          id: "1",
+          policyType: "car",
+          provider: "Test Insurance Co",
+          policyNumber: "POL-001",
+          startDate: new Date("2024-01-01"),
+          endDate: new Date("2024-12-31"),
+          premium: "500.00",
+        },
+        {
+          id: "2",
+          policyType: "house",
+          provider: "Home Insurance Ltd",
+          policyNumber: "POL-002",
+          startDate: new Date("2024-02-01"),
+          endDate: new Date("2025-02-01"),
+          premium: "1200.00",
+        },
+      ];
+
+      await renderWithProvidersAsync(<HomeScreen />, {
+        preloadedState: {
+          policy: {
+            policies: mockPolicies,
+            loading: false,
+            error: null,
+            saving: false,
+            saveError: null,
+          },
+        },
+      });
+
+      const policyCard = screen.getByText("Test Insurance Co");
+      await user.press(policyCard);
+
+      expect(router.push).toHaveBeenCalledWith({
+        pathname: "/home/manage-policy",
+        params: { policyId: "1" },
+      });
+
+      //check for the a11y for the policy cards
     });
   });
 

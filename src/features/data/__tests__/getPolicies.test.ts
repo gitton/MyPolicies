@@ -21,25 +21,20 @@ jest.mock("@/features/auth/getCurrentUser", () => ({
   getCurrentUser: jest.fn(),
 }));
 
+const mockCollectionRef = {
+  orderBy: jest.fn(),
+  get: jest.fn(),
+};
+
 jest.mock("@/features/data/firestore/getCollectionReference", () => ({
-  getPoliciesCollectionReference: jest.fn(),
+  // important: make it a jest.fn so .mockReturnValue* exists
+  getPoliciesCollectionReference: jest.fn(() => mockCollectionRef),
 }));
 
 // Tests for getting policies functionality
 describe("getPolicies", () => {
   //  mock Firestore documents (what's stored in Firestore)
   const mockPoliciesFirestore: FirestorePolicyType[] = [
-    {
-      id: "policy-id-1",
-      provider: "Test Insurance Co",
-      policyNumber: "POL-12345",
-      premium: "500.00",
-      startDate: createMockTimestamp(new Date("2024-01-01")) as any,
-      endDate: createMockTimestamp(new Date("2024-12-31")) as any,
-      policyType: "car",
-      createdAt: createMockTimestamp(new Date("2024-01-01")) as any,
-      updatedAt: createMockTimestamp(new Date("2024-01-01")) as any,
-    },
     {
       id: "policy-id-2",
       provider: "Another Insurance Co",
@@ -51,19 +46,21 @@ describe("getPolicies", () => {
       createdAt: createMockTimestamp(new Date("2024-02-01")) as any,
       updatedAt: createMockTimestamp(new Date("2024-02-01")) as any,
     },
-  ];
-
-  // Expected output (what the function should return - PolicyType with Dates)
-  const expectedPolicies: PolicyWithId[] = [
     {
       id: "policy-id-1",
       provider: "Test Insurance Co",
       policyNumber: "POL-12345",
       premium: "500.00",
-      startDate: new Date("2024-01-01"),
-      endDate: new Date("2024-12-31"),
+      startDate: createMockTimestamp(new Date("2024-01-01")) as any,
+      endDate: createMockTimestamp(new Date("2024-12-31")) as any,
       policyType: "car",
+      createdAt: createMockTimestamp(new Date("2024-01-01")) as any,
+      updatedAt: createMockTimestamp(new Date("2024-01-01")) as any,
     },
+  ];
+
+  // Expected output (what the function should return - PolicyType with Dates)
+  const expectedPolicies: PolicyWithId[] = [
     {
       id: "policy-id-2",
       provider: "Another Insurance Co",
@@ -73,6 +70,15 @@ describe("getPolicies", () => {
       endDate: new Date("2025-02-01"),
       policyType: "house",
     },
+    {
+      id: "policy-id-1",
+      provider: "Test Insurance Co",
+      policyNumber: "POL-12345",
+      premium: "500.00",
+      startDate: new Date("2024-01-01"),
+      endDate: new Date("2024-12-31"),
+      policyType: "car",
+    },
   ];
 
   const createMockDoc = (id: string, data: FirestorePolicyType) => ({
@@ -81,16 +87,12 @@ describe("getPolicies", () => {
   });
 
   const mockDocs = [
-    createMockDoc("policy-id-1", mockPoliciesFirestore[0]),
-    createMockDoc("policy-id-2", mockPoliciesFirestore[1]),
+    createMockDoc("policy-id-2", mockPoliciesFirestore[0]),
+    createMockDoc("policy-id-1", mockPoliciesFirestore[1]),
   ];
 
   const mockQuerySnapshot = {
     docs: mockDocs,
-  };
-
-  const mockCollectionRef = {
-    get: jest.fn(() => Promise.resolve(mockQuerySnapshot)),
   };
 
   beforeEach(() => {
@@ -99,6 +101,7 @@ describe("getPolicies", () => {
       mockCollectionRef
     );
     mockCollectionRef.get.mockResolvedValue(mockQuerySnapshot);
+    mockCollectionRef.orderBy.mockImplementation(() => mockCollectionRef);
   });
 
   it("should invoke getCurrentUser to check if user is logged in", async () => {
@@ -130,7 +133,7 @@ describe("getPolicies", () => {
     (getCurrentUser as jest.Mock).mockReturnValue({ id: mockUserId });
 
     await getPolicies();
-
+    expect(mockCollectionRef.orderBy).toHaveBeenCalledWith("createdAt", "desc");
     expect(mockCollectionRef.get).toHaveBeenCalledTimes(1);
   });
 
@@ -153,7 +156,7 @@ describe("getPolicies", () => {
   it("should return a success result with an empty array when no policies exist", async () => {
     const mockUserId = "user-123";
     (getCurrentUser as jest.Mock).mockReturnValue({ id: mockUserId });
-    (mockCollectionRef.get as jest.Mock).mockResolvedValue({
+    (mockCollectionRef.get as jest.Mock).mockResolvedValueOnce({
       docs: [],
     });
 
@@ -175,6 +178,7 @@ describe("getPolicies", () => {
 
     expect(getCurrentUser).toHaveBeenCalledTimes(1);
     expect(getPoliciesCollectionReference).toHaveBeenCalledWith(mockUserId);
+    expect(mockCollectionRef.orderBy).toHaveBeenCalledWith("createdAt", "desc");
     expect(mockCollectionRef.get).toHaveBeenCalledTimes(1);
     expect(result.success).toBe(false);
     expect((result as PolicyGetFailure).error.code).toEqual("UNKNOWN_ERROR");
@@ -204,7 +208,7 @@ describe("getPolicies", () => {
     (getCurrentUser as jest.Mock).mockReturnValue({ id: mockUserId });
 
     const singleDoc = [
-      createMockDoc("single-policy-id", mockPoliciesFirestore[0]),
+      createMockDoc("single-policy-id", mockPoliciesFirestore[1]),
     ];
 
     (mockCollectionRef.get as jest.Mock).mockResolvedValue({

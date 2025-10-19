@@ -35,14 +35,17 @@ export default function HomeScreen() {
   const { policies, loading, error } = useAppSelector(
     (state: RootState) => state.policy
   );
-
+  const user = useAppSelector((state: RootState) => state.auth.user);
   //Theme colors
   const textColor = useThemeColor({}, "text");
   const backgroundColor = useThemeColor({}, "background");
 
-  // All hooks must be called before any conditional returns
+  // Optimized function to handle policy press
   const handlePolicyPress = useCallback((id: string) => {
-    console.log("Policy pressed:", id);
+    router.push({
+      pathname: "/home/manage-policy",
+      params: { policyId: id },
+    });
   }, []);
 
   // Optimized render function
@@ -56,21 +59,18 @@ export default function HomeScreen() {
   // Optimized key extractor
   const keyExtractor = useCallback((item: PolicyWithId) => item.id, []);
 
-  // Separator component
-  const ItemSeparator = useCallback(
-    () => <View style={styles.separator} />,
-    []
-  );
-
-  // Empty state
-  const EmptyState = useCallback(() => <PolicyEmptyState />, []);
-
   // Fetch policies only once on mount if not already loaded
   useEffect(() => {
     if (policies.length === 0 && !loading && !error) {
       dispatch(fetchPolicies());
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      router.replace("/auth/login");
+    }
+  }, [user]);
 
   // Conditional returns AFTER all hooks
   if (loading) {
@@ -82,6 +82,12 @@ export default function HomeScreen() {
   if (error) {
     return <PolicyErrorDisplay />;
   }
+
+  // Separator component
+  const ItemSeparator = () => <View style={styles.separator} />;
+
+  // Empty state
+  const EmptyState = <PolicyEmptyState />;
   return (
     <>
       <Stack.Screen

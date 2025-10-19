@@ -1,50 +1,236 @@
-# Welcome to your Expo app 👋
+# 🛡️ React Native Insurance Management App (Expo + Firebase)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A **React Native (Expo)** mobile application that enables users to **log in, and manage insurance policies** for **Car, Van, Motorbike, and House**, with data stored securely in **Firebase Firestore**.  
 
-## Get started
+Built with TypeScript, Redux Toolkit, and a modular architecture — designed for **clarity, scalability, reliability, and testability**.
 
-1. Install dependencies
+---
 
+## 🎥 Demo
+
+🎬 **Video Walkthrough:** [Watch here](https://youtube.com/shorts/sfPQR5cbSQI?feature=share)
+
+---
+
+## ▶️ Running the App
+
+1. **Install dependencies**
    ```bash
    npm install
    ```
-
-2. Start the app
-
+2. **Start the development server**
    ```bash
    npx expo start
    ```
+3. **Open on device/simulator**
+   - iOS Simulator ✅ (tested)
+   - Android Emulator ⚠️ (configured but untested)
+   - Expo Go (physical device)
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🧪 Testing
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+Run test suite:
 ```bash
-npm run reset-project
+npm run test
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-## Learn more
+## 🚀 Features
 
-To learn more about developing your project with Expo, look at the following resources:
+### 🔐 Authentication
+- Email & Password authentication using **Firebase Authentication**
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 🧾 Policy Management
+- Create and **edit** insurance policies (for authenticated user)
+- Fields: **Type**, **Provider**, **Policy Number**, **Start Date**, **End Date**, **Premium**
+- Firestore-backed persistence with offline-read via local cache
 
-## Join the community
+### 🚗 Supported Insurance Types
+- Car  
+- Van  
+- Motorbike  
+- House
 
-Join our community of developers creating universal apps.
+### 💾 Data & Offline
+- **Firestore SDK** as the source of truth
+- Local cache for offline access and seamless sync when online
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## 🧱 Project Structure
+
+```
+src/
+├── __tests__/                        # Global test files
+│   ├── auth/                         # Auth-related tests
+│   │   └── LoginScreen.test.tsx
+│   ├── home/                         # Home and policy screen tests
+│   │   ├── HomeScreen.test.tsx
+│   │   └── ManagePolicyScreen.test.tsx
+│   └── SplashScreen.test.tsx
+├── app/                              # Expo Router-based app entry
+│   ├── _layout.tsx
+│   ├── auth/                         # Auth flow screens
+│   │   ├── _layout.tsx
+│   │   └── login.tsx
+│   ├── home/                         # Main home and policy management screens
+│   │   ├── _layout.tsx
+│   │   ├── index.tsx
+│   │   └── manage-policy.tsx
+│   └── index.tsx
+├── components/                       # Reusable UI components
+│   ├── policy/                       # Policy-specific UI components
+│   │   ├── policy-card.tsx
+│   │   ├── policy-empty-state.tsx
+│   │   ├── policy-error-display.tsx
+│   │   └── policy-loading-indicator.tsx
+│   ├── themed-text.tsx
+│   ├── themed-view.tsx
+│   └── ui/                           # General UI components
+│       ├── __tests__/
+│       ├── icon-symbol.ios.tsx
+│       ├── icon-symbol.tsx
+│       ├── themed-date-display.tsx
+│       └── themed-text-input.tsx
+├── constants/                        # Theme and global constants
+│   └── theme.ts
+├── features/                         # Core app features (business logic)
+│   ├── auth/                         # Firebase authentication utilities
+│   │   ├── getCurrentUser.ts
+│   │   ├── isNativeFirebaseError.ts
+│   │   ├── signInWithEmailPassword.ts
+│   │   └── subscribeToAuthState.ts
+│   ├── data/                         # Firestore operations
+│   │   ├── firestore/
+│   │   ├── getPolicies.ts
+│   │   └── savePolicy.ts
+│   └── Result.ts
+├── hooks/                            # Custom React hooks
+│   ├── hooks.ts
+│   ├── useThemeColor.ts
+│   └── useUnmountSignal.ts
+├── state/                            # Redux store and slices
+│   ├── slices/
+│   │   ├── authSlice.ts
+│   │   └── policySlice.ts
+│   └── store.ts
+├── test-utils/                       # Helper utilities for testing
+│   ├── mocks/
+│   │   └── expo-router.tsx
+│   └── renderWithProvider.tsx
+├── types/                            # Shared TypeScript types
+│   ├── FirestorePolicyType.ts
+│   ├── LoginType.ts
+│   ├── PolicyType.ts
+│   ├── PolicyTypeWithId.ts
+│   ├── SaveError.ts
+│   └── User.ts
+├── utils/                            # Utility functions
+│   ├── addYears.ts
+│   ├── convertFirestorePolicyToPolicy.ts
+│   ├── formatDateToShortMonth.ts
+│   ├── getEndOfDay.ts
+│   └── getStartOfDay.ts
+
+└── validation/                       # Form validation schemas
+    ├── loginSchema.ts
+    └── policySchema.ts
+```
+
+---
+
+## 🧰 Tech Stack
+
+| Category | Technology |
+|---------|------------|
+| Framework | React Native (Expo) |
+| Language | TypeScript |
+| State Management | Redux Toolkit |
+| Navigation | Expo Router |
+| Authentication | **Firebase Auth (Email/Password)** |
+| Database | **Firebase Firestore SDK** |
+| Testing | Jest + React Native Testing Library |
+
+---
+
+## 🔐 Firebase Configuration
+
+### 1) Create Firebase project
+- In [Firebase Console](https://console.firebase.google.com), create a new project.
+- Add **iOS** (bundle id e.g., `com.yourcompany.insurance`) and **Android** (package e.g., `com.yourcompany.insurance`).
+
+### 2) Enable Authentication (Email/Password)
+- Console → **Build → Authentication → Sign-in method**  
+- Enable **Email/Password**. (add a test user in the **Users** tab.)
+
+### 3) Enable Firestore
+- Console → **Build → Firestore Database** → **Create database**  
+- Start in **test mode** for development; tighten rules for production.
+
+
+
+### 4) Platform config files
+- Place the files in your project folder:
+  - iOS: `GoogleService-Info.plist`
+  - Android (untested): `google-services.json`
+
+### 5) Expo app config
+update **app.json**
+```json
+{
+  "expo": {
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.insurance",
+    },
+    "android": {
+      "package": "com.yourcompany.insurance",
+    }
+  }
+}
+```
+
+**Included tests (mocked where appropriate):**
+- Authentication flow ( sign in)
+- View All Policies
+- Policy create/edit forms and validation
+- Firestore operations (getPolicies, savePolicy)
+- Utility functions (date formatters, conversions, calculations)
+- Redux slices and state logic
+- UI components and rendering (SplashScreen, Home, ManagePolicy, Login)
+- Themed component testing (inputs, date display)
+
+**Test Results:**
+```
+> mypolicies@1.0.0 test
+> jest
+
+ PASS  src/features/data/__tests__/getPolicies.test.ts
+ PASS  src/features/data/__tests__/savePolicy.test.ts
+ PASS  src/utils/__tests__/formatDateToShortMonth.test.ts
+ PASS  src/state/slices/__tests__/policySlice.test.ts
+ PASS  src/utils/__tests__/getStartOfDay.test.ts
+ PASS  src/features/auth/__tests__/subscribeToAuthState.test.ts
+ PASS  src/features/auth/__tests__/signInWithEmailPassword.test.ts
+ PASS  src/features/auth/__tests__/isNativeFirebaseError.test.ts
+ PASS  src/utils/__tests__/convertFirestorePolicyToPolicy.test.ts
+ PASS  src/utils/__tests__/getEndOfDay.test.ts
+ PASS  src/features/auth/__tests__/getCurrentUser.test.ts
+ PASS  src/utils/__tests__/addYears.test.ts
+ PASS  src/components/ui/__tests__/themed-date-display.test.tsx
+ PASS  src/__tests__/SplashScreen.test.tsx
+ PASS  src/__tests__/home/HomeScreen.test.tsx
+ PASS  src/__tests__/auth/LoginScreen.test.tsx
+ PASS  src/__tests__/home/ManagePolicyScreen.test.tsx (5.801 s)
+
+Test Suites: 17 passed, 17 total
+Tests:       146 passed, 146 total
+Snapshots:   0 total
+Time:        6.805 s
+Ran all test suites.
+```
+
+> ✅ iOS tested  
+> ⚠️ Android integration prepared but not tested yet
+
+---
